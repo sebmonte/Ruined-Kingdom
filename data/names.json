@@ -1,0 +1,39 @@
+{
+  "first_names": {
+    "human": ["Alric", "Bren", "Corin", "Darin", "Elric", "Jonan"],
+    "elf": ["Aelion", "Sylra", "Thalor", "Ilyra", "Vaelin"],
+    "dwarf": ["Brom", "Kazgar", "Thorin", "Durak", "Morin"]
+  },
+
+  "surnames": {
+    "human": ["Ashford", "Blackwell", "Dunmar", "Ironwood"],
+    "elf": ["Moonwhisper", "Silverleaf", "Starbloom"],
+    "dwarf": ["Ironfist", "Stonebeard", "Deepforge"]
+  },
+
+  "titles": [
+    "the Wanderer",
+    "the Bold",
+    "the Keeper",
+    "the Red",
+    "of the North"
+  ],
+"personalities": {
+  "charm": {
+    "high": ["Beguiling", "Enchanting"],
+    "low": ["Repulsive", "Grating"]
+  },
+  "warmth": {
+    "high": ["Jovial", "Cheerful"],
+    "low": ["Wretched", "Miserable"]
+  },
+  "morality": {
+    "high": ["Honorable", "Virtuous"],
+    "low": ["Nefarious", "Wicked", "Evil"]
+  },
+  "unpredictability": {
+    "high": ["Randobot", "Anomaly"]
+  }
+}
+
+}
