@@ -11,6 +11,10 @@ def gloom_corn_effect(state: GameState, amount: int) -> None:
 def ale_effect(state: GameState, amount: int) -> None:
     bonus = amount // 5
     state.kingdom.loyalty += bonus
+def goop_effect(state: GameState, amount: int) -> None:
+    if "Flammable_Weapons" not in state.flags:
+        state.flags["Flammable_Weapons"] = True
+        state.add_log("Flammable Weapons have been unlocked.")
 
 def amanita_effect(state: GameState, amount: int) -> None:
     if amount <= 0:
@@ -76,6 +80,14 @@ CROP_DB = {
         edible=False,
         food_value=0,
         monthly_effect=amanita_effect,
+    ),
+    "Goop": Crop(
+        name="Goop",
+        description="A viscous green substance",
+        farmability=1.0,
+        edible=False,
+        food_value=0,
+        monthly_effect=goop_effect,
     ),
 }
 
