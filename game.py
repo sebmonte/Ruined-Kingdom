@@ -7,6 +7,7 @@ from models import GameState, Encounter, Choice, Player, Kingdom
 from generators_encounters import generate_biome, generate_encounter, next_area
 from generators_kingdom import enter_kingdom
 import re
+from crops import apply_crop_effects
 
 
 class GameUI:
@@ -243,6 +244,9 @@ class GameUI:
 
         self.refresh_inventory()
 
+def advance_month(state: GameState) -> None:
+    apply_crop_effects(state)
+    state.add_log("A month passes in Ashvale.")
 
 if __name__ == "__main__":
     root = tk.Tk()

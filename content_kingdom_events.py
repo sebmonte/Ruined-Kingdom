@@ -11,11 +11,11 @@ def infected_crops_event(state: GameState, advance) -> KingdomEvent:
         advance(state)
 
     def do_nothing():
-        state.add_log("You allow the people to eat the rotten food.")
+        loss = max(1, int(state.kingdom.population * 0.10))
+        state.add_log(f"You allow the people to eat the rotten food and lose {loss} population.")
         state.kingdom.population = max(
             0,
-            state.kingdom.population - max(1, int(state.kingdom.population * 0.10))
-        )
+            state.kingdom.population - loss)
 
         if random.random() < 0.5:
             extra_loss = max(1, int(state.kingdom.population * 0.20))
@@ -53,7 +53,7 @@ def rambunctious_monkey_event(state: GameState, advance) -> KingdomEvent:
             0,
             state.kingdom.army_units.get("Soldiers", 0) - 10 #If soldiers doesn't exist, return 0
         )
-        state.add_log("A raiding party escorts the monkey away. 10 soldiers are unavailable for the season.")
+        state.add_log("A raiding party leaves to find and escort the monkey away. 10 soldiers are unavailable for the month.")
         advance(state)
 
     def mock_farmer():
@@ -62,11 +62,8 @@ def rambunctious_monkey_event(state: GameState, advance) -> KingdomEvent:
         advance(state)
 
     def use_bananas():
-        # remove 2 bananas from crop_types if present twice
-        removed = 0
-        while "Bananas" in state.kingdom.crop_types and removed < 2:
-            state.kingdom.crop_types.remove("Bananas")
-            removed += 1
+        if "Bananas" in state.kingdom.crops:
+            state.kingdom.crops["Bananas"] = max(0, state.kingdom.crops["Bananas"] - 2)
         state.add_log("The bananas lure the monkey away.")
         advance(state)
 
@@ -74,7 +71,7 @@ def rambunctious_monkey_event(state: GameState, advance) -> KingdomEvent:
         return "Animal Husbandry" in s.kingdom.perks
 
     def has_bananas(s: GameState) -> bool:
-        return s.kingdom.crop_types.count("Bananas") >= 2
+        return s.kingdom.crops.get("Bananas", 0) >= 2
     def has_soldiers(s: GameState) -> bool:
         return s.kingdom.army_units.get("Soldiers", 0) >= 10
 
@@ -110,7 +107,41 @@ options=[
     )
 
 
+
+
+def animal_language(state: GameState, advance) -> KingdomEvent:
+
+    def reject_animal_language():
+        state.add_log("May man be ever separate from lower creatures.")
+        advance(state)
+
+    def acquire_animal_language():
+        state.kingdom.perks.append("Animal_Language")
+        advance(state)
+        return 
+
+    return KingdomEvent(
+        event_id="rambunctious_monkey",
+        title="Rambunctious Monkey",
+        description=(
+            "Your psychologist has befriended a local monkey and used classical conditioning techniques to successfully teach him sign language."
+            "Amazingly, he also taught the psychologist how to communicate with the animals of the forest. He suggests teaching you these secrets."
+        ),
+options=[
+    EventOption(
+        "Learn Animal Language!",
+        acquire_animal_language
+    ),
+    EventOption(
+        "Reject Animal Language.",
+        reject_animal_language,
+    ),
+]
+    )
+
+
 KINGDOM_EVENT_BUILDERS = [
     infected_crops_event,
     rambunctious_monkey_event,
+    animal_language
 ]

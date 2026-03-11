@@ -1,6 +1,7 @@
 from models import GameState, KingdomEvent, EventOption, Choice, Encounter
 from generators_npc import generate_npc
 from content_kingdom_events import KINGDOM_EVENT_BUILDERS
+from crops import CROP_DB
 import random
 
 
@@ -28,6 +29,9 @@ def enter_kingdom(state: GameState) -> None:
     def appoint_advisor():
         kingdom_appoint_advisor(state)
 
+    def view_perks():
+        kingdom_view_perks(state)
+
     def depart_again():
         leave_kingdom(state)
 
@@ -42,9 +46,10 @@ def enter_kingdom(state: GameState) -> None:
             Choice("1", "Talk to the king", talk_to_king),
             Choice("2", "View your army", view_army),
             Choice("3", "View your crops", view_crops),
-            Choice("4", "Appoint an advisor", appoint_advisor),
-            Choice("5", "Events", view_events),
-            Choice("6", "Leave the kingdom", depart_again),
+            Choice("4", "View kingdom perks", view_perks),
+            Choice("5", "Appoint an advisor", appoint_advisor),
+            Choice("6", "Events", view_events),
+            Choice("7", "Leave the kingdom", depart_again),
         ],
     )
 
@@ -78,6 +83,7 @@ def show_current_kingdom_event(state: GameState) -> None:
         description=event.description,
         choices=choices,
     )
+
 def advance_kingdom_event(state: GameState) -> None:
     state.current_kingdom_event_index += 1
     show_current_kingdom_event(state)
@@ -127,20 +133,41 @@ def kingdom_view_army(state: GameState) -> None:
 
 
 def kingdom_view_crops(state: GameState) -> None:
-    crops_text = ", ".join(state.kingdom.crop_types) if state.kingdom.crop_types else "No crops planted."
+    if state.kingdom.crops:
+        crop_lines = []
+        for crop_id, amount in state.kingdom.crops.items():
+            crop = CROP_DB[crop_id]
+            crop_lines.append(f"{crop.name}: {amount} — {crop.description}")
+        crops_text = "\n".join(crop_lines)
+    else:
+        crops_text = "No crops planted."
 
     set_kingdom_encounter(
         state,
         title="The Crops",
         description=(
-            f"Crop types: {crops_text}\n\n"
-            f"Stored food: {state.kingdom.total_food}"
+            f"{crops_text}\n\n"
+            f"Stored food: {state.kingdom.total_food}\n"
         ),
         choices=[
             Choice("1", "Back", lambda: enter_kingdom(state)),
         ],
     )
 
+def kingdom_view_perks(state: GameState) -> None:
+    if state.kingdom.perks:
+        perk_text = "\n".join(state.kingdom.perks)
+    else:
+        perk_text = "No perks acquired."
+
+    set_kingdom_encounter(
+        state,
+        title="Perks",
+        description=f"{perk_text}\n",
+        choices=[
+            Choice("1", "Back", lambda: enter_kingdom(state)),
+        ],
+    )
 
 def kingdom_appoint_advisor(state: GameState) -> None:
     """

@@ -53,7 +53,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Kingdom:
     name: str = "Ashvale"
-    crop_types: list[str] = field(default_factory=lambda: ["Wheat"])
+    crops: dict[str, int] = field(default_factory=lambda: {"Gloom_Corn": 10})
     total_food: int = 20
     advisor: NPC | None = None
     happiness: int = 50
@@ -80,5 +80,15 @@ class GameState:
     def add_log(self, text: str) -> None:
         self.log.append(text)
 
+@dataclass
+class Crop:
+    name: str
+    description: str
+    farmability: float = 1.0
+    edible: bool = True
+    food_value: int = 1
+    monthly_effect: Callable | None = None
+    on_stock_change: Callable | None = None
+    tags: list[str] = field(default_factory=list)
 
 
