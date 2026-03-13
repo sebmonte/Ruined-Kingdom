@@ -1,0 +1,37 @@
+{
+  "first_names": {
+    "human": ["Alric", "Bren", "Corin", "Darin", "Elric", "Jonan"],
+    "elf": ["Aelion", "Sylra", "Thalor", "Ilyra", "Vaelin"],
+    "dwarf": ["Brom", "Kazgar", "Thorin", "Durak", "Morin"],
+    "dog": ["Woofsley", "Sir Barkington", "Miss Fluffington", "Buddy", "Max", "Fido", "Bella", "Lucky", "Shadow", "Spike", "Miss Stinky The Third"],
+    "ape": ["Ooh Aah", "Curious George", "Bongo", "Apey", "Banana Brain", "King Kong", "Jane", "Bubbles", "Chimpy", "Chimpy McChimpson"]
+  },
+
+  "surnames": {
+    "human": ["Ashford", "Blackwell", "Dunmar", "Ironwood"],
+    "elf": ["Moonwhisper", "Silverleaf", "Starbloom"],
+    "dwarf": ["Ironfist", "Stonebeard", "Deepforge"],
+    "dog": ["", ""],
+    "ape": ["", ""]
+  },
+
+"personalities": {
+  "willpower": {
+    "high": ["Wolf-Hearted", "Resilient"],
+    "low": ["Susceptible", "Neurotic"]
+  },
+  "extraversion": {
+    "high": ["Outgoing", "Social"],
+    "low": ["Introverted", "Solitary"]
+  },
+  "luck": {
+    "high": ["Lucky", "Fortunate"],
+    "low": ["Unlucky", "Unfortunate"]
+  },
+  "conscientiousness": {
+    "high": ["Organized", "Responsible"],
+    "low": ["Disorganized", "Irresponsible"]
+  }
+}
+
+}

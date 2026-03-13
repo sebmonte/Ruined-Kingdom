@@ -3,11 +3,11 @@ from tkinter import ttk
 from dataclasses import dataclass, field
 import random
 import generators_npc
-from models import GameState, Encounter, Choice, Player, Kingdom
+from models import GameState, Encounter, Choice, Kingdom
 from generators_encounters import generate_biome, generate_encounter, next_area
 from generators_kingdom import enter_kingdom
+from generators_villagers import generate_villager
 import re
-from crops import apply_crop_effects
 
 
 class GameUI:
@@ -18,6 +18,10 @@ class GameUI:
         self.root.minsize(700, 450)
 
         self.state = GameState()
+
+        # Initialize kingdom with 10 villagers at game start if population is empty
+        if not self.state.kingdom.population:
+            self.state.kingdom.population = [generate_villager("human") for _ in range(10)]
 
         # Temporary example inventory if your GameState does not have one yet
         if not hasattr(self.state, "inventory"):
@@ -36,13 +40,14 @@ class GameUI:
         # ----------------------------
         self.top_frame = ttk.Frame(self.root, padding=10)
         self.top_frame.grid(row=0, column=0, sticky="ew")
-        self.top_frame.columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+        self.top_frame.columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
 
         self.kingdom_var = tk.StringVar()
         self.food_var = tk.StringVar()
         self.army_var = tk.StringVar()
         self.happiness_var = tk.StringVar()
         self.fear_var = tk.StringVar()
+        self.population_var = tk.StringVar()
         self.area_var = tk.StringVar()
 
         ttk.Label(self.top_frame, textvariable=self.kingdom_var).grid(row=0, column=0, sticky="w")
@@ -50,7 +55,8 @@ class GameUI:
         ttk.Label(self.top_frame, textvariable=self.army_var).grid(row=0, column=2, sticky="w")
         ttk.Label(self.top_frame, textvariable=self.happiness_var).grid(row=0, column=3, sticky="w")
         ttk.Label(self.top_frame, textvariable=self.fear_var).grid(row=0, column=4, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.area_var).grid(row=0, column=5, sticky="w")
+        ttk.Label(self.top_frame, textvariable=self.population_var).grid(row=0, column=5, sticky="w")
+        ttk.Label(self.top_frame, textvariable=self.area_var).grid(row=0, column=6, sticky="w")
 
         # ----------------------------
         # Notebook with tabs
@@ -159,8 +165,6 @@ class GameUI:
     def handle_choice(self, event: tk.Event) -> None:
         if self.notebook.select() != str(self.encounter_tab): #Stop player from sending input if not in encounter
             return
-        if self.state.player.hp <= 0:
-            return
 
         encounter = self.state.current_encounter
         if encounter is None:
@@ -175,13 +179,7 @@ class GameUI:
                 return
 
     def check_game_over(self) -> None:
-        if self.state.player.hp <= 0:
-            self.state.add_log("You collapse from your injuries. Game over.")
-            self.state.current_encounter = Encounter(
-                title="Game Over",
-                description="Your adventure has ended.",
-                choices=[],
-            )
+        pass
 
     def refresh_inventory(self) -> None:
         self.inventory_list.delete(0, tk.END)
@@ -207,9 +205,9 @@ class GameUI:
 
         # insert remaining text
         self.text_box.insert(tk.END, text[pos:])
+
     def refresh_ui(self) -> None:
         k = self.state.kingdom
-
         #advisor_name = k.advisor.name if k.advisor else "None"
         army_total = sum(k.army_units.values())
         self.kingdom_var.set(f"Kingdom: {k.name}")
@@ -217,6 +215,7 @@ class GameUI:
         self.army_var.set(f"Army: {army_total}")
         self.happiness_var.set(f"Happiness: {k.happiness}")
         self.fear_var.set(f"Fear: {k.fear}")
+        self.population_var.set(f"Pop: {len(k.population)}")
         self.area_var.set(f"Area: {self.state.area_index} ({self.state.current_biome})")
 
         self.text_box.config(state="normal")
@@ -243,10 +242,6 @@ class GameUI:
             self.choice_var.set("No choices available.")
 
         self.refresh_inventory()
-
-def advance_month(state: GameState) -> None:
-    apply_crop_effects(state)
-    state.add_log("A month passes in Ashvale.")
 
 if __name__ == "__main__":
     root = tk.Tk()

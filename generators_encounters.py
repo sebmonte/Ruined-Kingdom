@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from dataclasses import dataclass, field
 import random
-from models import GameState, Encounter, Choice, Player, NPC
+from models import GameState, Encounter, Choice, NPC
 import json
 import random
 from content_loader import ENCOUNTERS
@@ -184,14 +184,6 @@ def generate_encounter(state: GameState) -> Encounter:
 
 def next_area(state: GameState) -> None:
     state.area_index += 1
-
-    # passive travel cost
-    if state.player.food > 0:
-        state.player.food -= 1
-        state.add_log("You consume 1 food while traveling.")
-    else:
-        state.player.hp -= 1
-        state.add_log("You have no food and lose 1 HP from exhaustion.")
 
     state.current_biome = generate_biome(state.area_index)
     state.current_encounter = generate_encounter(state)
