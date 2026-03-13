@@ -74,6 +74,19 @@ class KingdomEvent:
     """If set, the event is only eligible for the pool when this returns True (e.g. only show when a villager is addicted)."""
 
 
+@dataclass
+class WorldEncounterDefinition:
+    """Definition of a world encounter: builder plus eligibility and repeatability (like KingdomEvent)."""
+    encounter_id: str
+    builder: Callable[["GameState"], Encounter]
+    repeatable: bool = True
+    """If False, this encounter will not appear again after it has occurred once."""
+    retire_if: Callable[["GameState"], bool] | None = None
+    """If set, when this returns True the encounter is excluded from the pool."""
+    available_if: Callable[["GameState"], bool] | None = None
+    """If set, the encounter is only eligible when this returns True."""
+
+
 @dataclass # Crop is a crop that can be grown in the kingdom.
 class Crop:
     name: str
@@ -103,7 +116,6 @@ class Kingdom:
 @dataclass
 class GameState:
     area_index: int = 0
-    current_biome: str = "Forest"
     current_encounter: Encounter | None = None
     log: list[str] = field(default_factory=list)
     flags: dict = field(default_factory=dict)
@@ -112,9 +124,14 @@ class GameState:
     kingdom_event_queue: list = field(default_factory=list)
     current_kingdom_event_index: int = 0
     events_remaining_this_month: int = 3
+    encounters_remaining_this_month: int = 3
     last_month_summary: list[str] = field(default_factory=list)
     occurred_kingdom_event_ids: set[str] = field(default_factory=set)
     """Event IDs of non-repeatable kingdom events that have already occurred."""
+    occurred_encounter_ids: set[str] = field(default_factory=set)
+    """Encounter IDs of non-repeatable world encounters that have already occurred."""
+    current_encounter_id: str | None = None
+    """ID of the encounter currently being played (so we can mark it occurred when finished)."""
     def add_log(self, text: str) -> None:
         self.log.append(text)
 

@@ -182,6 +182,7 @@ def show_monthly_summary(state: GameState) -> None:
     """Show the monthly effects summary. 'Continue' resets events remaining to 3 and returns to hub."""
     def continue_to_kingdom():
         state.events_remaining_this_month = 3
+        state.encounters_remaining_this_month = 3
         state.kingdom_event_queue = []
         state.current_kingdom_event_index = 0
         enter_kingdom(state)
@@ -432,13 +433,16 @@ def kingdom_appoint_advisor(state: GameState) -> None:
 # ---------------------------------------------------------------------------
 
 def leave_kingdom(state: GameState) -> None:
-    """Leave the kingdom and re-enter encounter mode (new biome and encounter)."""
+    """Leave the kingdom and re-enter encounter mode. Uses 3 encounters per month; if none left, show return-to-kingdom screen."""
     state.add_log(f"You leave {state.kingdom.name} and head back into the wilds.")
 
-    from generators_encounters import generate_biome, generate_encounter
+    from generators_encounters import get_next_encounter, _no_encounters_encounter
 
-    state.current_biome = generate_biome(state.area_index)
-    state.current_encounter = generate_encounter(state)
+    encounter = get_next_encounter(state)
+    if encounter is None:
+        state.current_encounter = _no_encounters_encounter(state)
+    else:
+        state.current_encounter = encounter
 
 
 def set_kingdom_encounter(state: GameState, title: str, description: str, choices: list[Choice]) -> None:

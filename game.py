@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 import random
 import generators_npc
 from models import GameState, Encounter, Choice, Kingdom
-from generators_encounters import generate_biome, generate_encounter, next_area
 from generators_kingdom import enter_kingdom
 from generators_villagers import generate_villager
 import re
@@ -156,12 +155,7 @@ class GameUI:
         self.state.add_log("Your reign begins.")
         enter_kingdom(self.state)
         self.refresh_ui()
-        '''
-        self.state.current_biome = generate_biome(self.state.area_index)
-        self.state.current_encounter = generate_encounter(self.state)
-        self.state.add_log("Your journey begins.")
-        self.refresh_ui()
-        '''
+
     def handle_choice(self, event: tk.Event) -> None:
         if self.notebook.select() != str(self.encounter_tab): #Stop player from sending input if not in encounter
             return
@@ -216,7 +210,7 @@ class GameUI:
         self.happiness_var.set(f"Happiness: {k.happiness}")
         self.fear_var.set(f"Fear: {k.fear}")
         self.population_var.set(f"Pop: {len(k.population)}")
-        self.area_var.set(f"Area: {self.state.area_index} ({self.state.current_biome})")
+        self.area_var.set(f"Area: {self.state.area_index}")
 
         self.text_box.config(state="normal")
         self.text_box.delete("1.0", tk.END)
@@ -236,7 +230,7 @@ class GameUI:
         self.text_box.see(tk.END)
 
         if encounter and encounter.choices:
-            choice_lines = [f"{c.key}. {c.text}" for c in encounter.choices]
+            choice_lines = [f"{i}. {c.text}" for i, c in enumerate(encounter.choices, 1)]
             self.choice_var.set("\n".join(choice_lines))
         else:
             self.choice_var.set("No choices available.")

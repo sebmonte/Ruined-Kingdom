@@ -11,23 +11,6 @@ from generators_villagers import generate_villager
 from crops import CROP_DB
 
 
-def _get_addicted_villager_and_substance(state: GameState, only_when_substance_count_is_zero: bool = False) -> tuple[Villager, str] | None:
-    """Return a random villager who has an addiction and one of their addicted substances (crop_id), or None.
-    If only_when_substance_count_is_zero is True, only consider villagers whose addicted substance has count 0 in kingdom.crops."""
-    addicted = [(v, s.target) for v in state.kingdom.population for s in v.status if s.kind == "addicted" and s.target]
-    if only_when_substance_count_is_zero:
-        # Only include (villager, crop_id) where the kingdom has 0 of that crop in storage
-        addicted = [(v, cid) for v, cid in addicted if state.kingdom.crops.get(cid, 0) == 0]
-    if not addicted:
-        return None
-    v, crop_id = random.choice(addicted)
-    return (v, crop_id)
-
-
-def _has_addicted_villager_with_zero_stock(state: GameState) -> bool:
-    """True if at least one villager is addicted to a substance whose count in kingdom.crops is 0."""
-    return _get_addicted_villager_and_substance(state, only_when_substance_count_is_zero=True) is not None
-
 
 def remove_random_villagers(state: GameState, n: int) -> int:
     """Remove up to n random villagers from the kingdom. Returns how many were removed."""
@@ -161,7 +144,7 @@ options=[
 
 
 
-def animal_language(state: GameState, advance) -> KingdomEvent:
+def animal_language_event(state: GameState, advance) -> KingdomEvent:
 
     def reject_animal_language():
         state.add_log("May man be ever separate from lower creatures.")
@@ -196,6 +179,23 @@ def animal_language(state: GameState, advance) -> KingdomEvent:
 
 
 
+def _get_addicted_villager_and_substance(state: GameState, only_when_substance_count_is_zero: bool = False) -> tuple[Villager, str] | None:
+    """Return a random villager who has an addiction and one of their addicted substances (crop_id), or None.
+    If only_when_substance_count_is_zero is True, only consider villagers whose addicted substance has count 0 in kingdom.crops."""
+    addicted = [(v, s.target) for v in state.kingdom.population for s in v.status if s.kind == "addicted" and s.target]
+    if only_when_substance_count_is_zero:
+        # Only include (villager, crop_id) where the kingdom has 0 of that crop in storage
+        addicted = [(v, cid) for v, cid in addicted if state.kingdom.crops.get(cid, 0) == 0]
+    if not addicted:
+        return None
+    v, crop_id = random.choice(addicted)
+    return (v, crop_id)
+
+
+def _has_addicted_villager_with_zero_stock(state: GameState) -> bool:
+    """True if at least one villager is addicted to a substance whose count in kingdom.crops is 0."""
+    return _get_addicted_villager_and_substance(state, only_when_substance_count_is_zero=True) is not None
+
 def drug_withdrawal_event(state: GameState, advance) -> KingdomEvent:
     """
     A villager addicted to a substance confronts you about the stores being empty.
@@ -214,8 +214,8 @@ def drug_withdrawal_event(state: GameState, advance) -> KingdomEvent:
     substance_display = CROP_DB[crop_id].name if crop_id in CROP_DB else crop_id
     description = (
         f"{villager.name} arrives at your office, looking furious. Beady, red eyes glare at you. "
-        f'"Sir, there is no {substance_display} left in our stores. Frankly, I am disgusted that we are out of '
-        f'{substance_display}. How am I supposed to feed my family?"'
+        f'"Sir, there is no {substance_display} left in our stores. Frankly, I am morally revolted that we are out'
+        f'of {substance_display}. How am I supposed to feed my family?"'
     )
 
     def send_away():
@@ -259,7 +259,7 @@ def _villager_with_highest_luck(state: GameState) -> Villager | None:
     return random.choice(candidates)
 
 
-def hidden_treasure(state: GameState, advance) -> KingdomEvent:
+def hidden_treasure_event(state: GameState, advance) -> KingdomEvent:
     """
     The luckiest villager offers to find a buried treasure. Player can send them to dig (luck-based roll)
     or wave them away.
@@ -346,8 +346,8 @@ def hidden_treasure(state: GameState, advance) -> KingdomEvent:
 KINGDOM_EVENT_BUILDERS = [
     infected_crops_event,
     rambunctious_monkey_event,
-    animal_language,
+    animal_language_event,
     dog_discovery_event,
     drug_withdrawal_event,
-    hidden_treasure,
+    hidden_treasure_event,
 ]
