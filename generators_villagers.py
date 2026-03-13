@@ -17,7 +17,7 @@ def generate_name(race: str) -> tuple[str, str]:
 def generate_stat() -> int:
     return random.choices(
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        weights=[1, 3, 9, 10, 12, 10, 9, 3, 1, 1],
+        weights=[2, 4, 9, 20, 14, 8, 4, 2, 1, 1],
         k=1
     )[0]
 
@@ -33,9 +33,9 @@ def get_personality_traits(willpower: int, extraversion: int, luck: int, conscie
     traits = []
 
     for stat, value in stats.items():
-        if value >= 8:
+        if value >= 9:
             traits.append(random.choice(VILLAGERS["personalities"][stat]["high"]))
-        elif value <= 3:
+        elif value <= 2:
             traits.append(random.choice(VILLAGERS["personalities"][stat]["low"]))
 
     return traits

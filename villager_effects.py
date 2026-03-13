@@ -7,14 +7,10 @@ from generators_villagers import generate_villager
 
 
 def addiction_chance_from_willpower(willpower: int) -> float:
-    """
-    Returns probability of addiction as a float from 0.0 to 1.0.
-
-    0 willpower  -> 10% chance
-    10 willpower -> 0% chance
-    """
-    willpower = max(0, min(10, willpower))  # clamp to 0-10
-    return 0.10 * (1 - willpower / 10)
+    """Rough probabilities: 0 willpower -> 10% chance, 10 willpower -> 0% chance"""
+    willpower = max(0, min(10, willpower))
+    x = willpower / 10
+    return 0.10 * (1 - x) ** 2
 
 def fertility_chance_from_extraversion(extraversion: int) -> float:
     """
