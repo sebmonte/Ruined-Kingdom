@@ -97,6 +97,7 @@ class Kingdom:
     loyalty: int = 50
     perks: list[str] = field(default_factory=list)
     army_units: dict[str, int] = field(default_factory=lambda: {"Soldiers": 10})
+    gold: int = 0
     advisor_candidates: list[NPC] = field(default_factory=list)
 
 @dataclass

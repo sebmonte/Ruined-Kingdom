@@ -1,5 +1,12 @@
+"""
+Kingdom event builders. Event option effects can either:
+- Log and advance: state.add_log(...); advance(state)  → message goes to the scrollback log, then return to hub.
+- Show outcome screen: set state.current_encounter to a new Encounter with the outcome as description and
+  a single choice (e.g. "1. Return to the kingdom") that calls advance(state)  → player reads the outcome
+  on the main description area, then presses 1 to continue. Use this when the outcome is the focus.
+"""
 import random
-from models import GameState, KingdomEvent, EventOption, Villager
+from models import GameState, KingdomEvent, EventOption, Villager, Encounter, Choice
 from generators_villagers import generate_villager
 from crops import CROP_DB
 
@@ -161,6 +168,7 @@ def animal_language(state: GameState, advance) -> KingdomEvent:
         advance(state)
 
     def acquire_animal_language():
+        state.add_log("You learn the secrets of bestial talk.")
         state.kingdom.perks.append("Animal_Language")
         advance(state)
         return 
@@ -215,8 +223,10 @@ def drug_withdrawal_event(state: GameState, advance) -> KingdomEvent:
         state.add_log("You send them away. Loyalty drops by 2.")
         advance(state)
 
-    def promise_restock():
-        state.add_log("You promise to restock. They leave, somewhat mollified.")
+    def execute_addict():
+        state.kingdom.population.remove(villager)
+        state.add_log(f"You execute {villager.name} on the spot. They are removed from the population, and fear spreads.")
+        state.kingdom.fear = max(0, state.kingdom.fear + 4)
         advance(state)
 
     def offer_food():
@@ -231,11 +241,105 @@ def drug_withdrawal_event(state: GameState, advance) -> KingdomEvent:
         description=description,
         options=[
             EventOption("Send them away (-2 loyalty)", send_away),
-            EventOption("Promise to restock", promise_restock),
+            EventOption("Execute the disgruntled villager on the spot", execute_addict),
             EventOption("Offer food from the stores (-5 food)", offer_food),
         ],
         repeatable=True,
         available_if=_has_addicted_villager_with_zero_stock,
+    )
+
+
+
+def _villager_with_highest_luck(state: GameState) -> Villager | None:
+    """Return a villager with the highest luck in the kingdom; if tie, pick one at random."""
+    if not state.kingdom.population:
+        return None
+    best_luck = max(v.luck for v in state.kingdom.population)
+    candidates = [v for v in state.kingdom.population if v.luck == best_luck]
+    return random.choice(candidates)
+
+
+def hidden_treasure(state: GameState, advance) -> KingdomEvent:
+    """
+    The luckiest villager offers to find a buried treasure. Player can send them to dig (luck-based roll)
+    or wave them away.
+    """
+    villager = _villager_with_highest_luck(state)
+    kingdom_name = state.kingdom.name
+    lucky_villager_name = villager.name
+    lucky_villager_luck = villager.luck
+    description = (
+        f"{lucky_villager_name} approaches you. They proudly proclaim, "
+        f"'I have been declared the luckiest citizen of {kingdom_name}! I recently sensed the presence of "
+        f"a nearby treasure buried underground. Shall I fetch it? (Luck: {lucky_villager_luck})'"
+    )
+
+    def wave_away():
+        state.add_log(f"You wave {lucky_villager_name} out of your office.")
+        advance(state)
+
+    def send_to_fetch():
+        # Roll: 10 luck = 90% success, 8% moderate, 2% failure; 1 luck = 2% success, 8% moderate, 90% failure; linear between
+        luck = max(1, min(10, lucky_villager_luck))
+        odds_by_luck = {
+            10: (0.90, 0.08, 0.02),   # success, moderate, failure
+            9:  (0.80, 0.18, 0.02),
+            8:  (0.70, 0.25, 0.05),
+            7:  (0.45, 0.45, 0.10),
+            6:  (0.35, 0.50, 0.15),
+            5:  (0.10, 0.70, 0.20),
+            4:  (0.04, 0.51, 0.45),
+            3:  (0.01, 0.36, 0.63),
+            2:  (0.005, 0.21, 0.785),
+            1:  (0.002, 0.12, 0.878),
+        }
+
+        success_prob, moderate_prob, failure_prob = odds_by_luck[luck]
+        r = random.random()
+        intro = (
+            f"{lucky_villager_name} closes their eyes and sticks their hand out, calling for their luck to guide them. "
+            "They reach a random spot in the fields and point to it. 'Gold is buried here, I know it!'\n\n"
+        )
+        if r < success_prob:
+            gold_found = random.randint(20, 50)
+            state.kingdom.gold += gold_found
+            outcome = (
+                f"{intro}"
+                f"You dig up the ground, and to your astonishment, you find an old, wooden pirate's chest filled with gold. "
+                f"({gold_found} gold added to the kingdom.)"
+            )
+            state.add_log(f"{gold_found} gold was found.")
+        elif r < success_prob + moderate_prob:
+            outcome = (
+                f"{intro}"
+                f"You dig up the ground and find nothing. {lucky_villager_name} looks surprised and frowns. 'Maybe next time.'"
+            )
+            state.add_log(f"No treasure was found.")
+        else:
+            state.kingdom.population.remove(villager)
+            outcome = (
+                f"{intro}"
+                f"You dig up the ground and find a small, powered device. {lucky_villager_name} grabs it and holds it high in the air, "
+                f"declaring it to be an artifact of immense value. It explodes, killing {lucky_villager_name} instantly and knocking you back."
+            )
+            state.add_log(f"{lucky_villager_name} failed to find the treasure and was killed.")
+        # Show outcome on the description screen; player presses 1 to return to kingdom
+        state.current_encounter = Encounter(
+            title="Hidden Treasure",
+            description=outcome,
+            choices=[Choice("1", "Return to the kingdom", lambda: advance(state))],
+        )
+
+    return KingdomEvent(
+        event_id="hidden_treasure",
+        title="Hidden Treasure",
+        description=description,
+        options=[
+            EventOption("Send the villager to fetch the chest.", send_to_fetch),
+            EventOption("Wave the villager out of your office.", wave_away),
+        ],
+        repeatable=True,
+        available_if=lambda s: len(s.kingdom.population) > 0,
     )
 
 
@@ -245,4 +349,5 @@ KINGDOM_EVENT_BUILDERS = [
     animal_language,
     dog_discovery_event,
     drug_withdrawal_event,
+    hidden_treasure,
 ]
