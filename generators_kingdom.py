@@ -2,19 +2,29 @@
 Kingdom hub and menu logic.
 
 - enter_kingdom: main hub screen when the player returns home; presents menu choices.
-- event_picker: builds the monthly event queue, filters by eligibility (occurred, retire_if, available_if),
-  and shows the next kingdom event when the player chooses "Events".
-- advance_kingdom_event / finish_kingdom_events: handle event completion and return to hub.
-- show_monthly_summary: shown after advancing the month; resets event count and queue on Continue.
+- show_current_kingdom_event: pick one event at a time from current eligible (available_if evaluated each time).
+- show_monthly_summary: shown after advancing the month; resets monthly counters on Continue.
 - kingdom_*: individual menu screens (army, crops, population, perks, advisor, talk to king).
 - set_kingdom_encounter: helper to set state.current_encounter for any kingdom screen.
 """
-from models import GameState, KingdomEvent, EventOption, Choice, Encounter
+
+import random
+
+from models import GameState, Choice, Encounter, EventDefinition
 from generators_npc import generate_npc
-from content_kingdom_events import KINGDOM_EVENT_BUILDERS
+from content_kingdom_events import KINGDOM_EVENT_DEFINITIONS
 from crops import CROP_DB
 from month_advance import advance_month
-import random
+from event_runtime import EventContext, auto_number_choices, eligible_definitions, mark_occurred_if_needed
+from content_perks import PERK_DEFINITIONS
+
+
+def _perk_id_to_display_name(perk_id: str) -> str:
+    """Resolve perk_id to display name for UI; event-granted perks may have no definition."""
+    for p in PERK_DEFINITIONS:
+        if p.perk_id == perk_id:
+            return p.name
+    return perk_id.replace("_", " ").title()
 
 
 # ---------------------------------------------------------------------------
@@ -24,13 +34,13 @@ import random
 def enter_kingdom(state: GameState) -> None:
     """
     Main kingdom hub screen. Call this whenever the player returns home.
-    Sets the current encounter to the hub menu (talk to king, view army/crops/perks/villagers,
-    view events, advance month, leave).
+    Sets the current encounter to the hub menu.
     """
     def view_events():
-        event_picker(state)
-    def talk_to_king():
-        kingdom_talk_to_king(state)
+        show_current_kingdom_event(state)
+
+    def talk_to_advisor():
+        kingdom_talk_to_advisor(state)
 
     def view_army():
         kingdom_view_army(state)
@@ -62,15 +72,15 @@ def enter_kingdom(state: GameState) -> None:
             f"The halls are quiet, and the burdens of rule await you."
         ),
         choices=[
-            Choice("1", "Talk to the king", talk_to_king),
-            Choice("2", "View your army", view_army),
-            Choice("3", "View your crops", view_crops),
-            Choice("4", "View kingdom perks", view_perks),
-            Choice("5", "Appoint an advisor", appoint_advisor),
-            Choice("6", f"Events ({state.events_remaining_this_month} remaining)", view_events),
-            Choice("7", "View villagers", view_population),
-            Choice("8", "Advance month", do_advance_month),
-            Choice("9", "Leave the kingdom", depart_again),
+            Choice("", "Talk to your advisor", talk_to_advisor),
+            Choice("", "View your army", view_army),
+            Choice("", "View your crops", view_crops),
+            Choice("", "View kingdom perks", view_perks),
+            Choice("", "Appoint an advisor", appoint_advisor),
+            Choice("", f"Events ({state.events_remaining_this_month} remaining)", view_events),
+            Choice("", "View villagers", view_population),
+            Choice("", "Advance month", do_advance_month),
+            Choice("", "Leave the kingdom", depart_again),
         ],
     )
 
@@ -79,99 +89,57 @@ def enter_kingdom(state: GameState) -> None:
 # Kingdom event system (queue, eligibility, showing events)
 # ---------------------------------------------------------------------------
 
-def event_picker(state: GameState) -> None:
-    """
-    Handles the "Events" menu option. Builds a queue of up to 3 kingdom events when needed;
-    each time the player chooses Events, shows the next event from the queue, then returns to hub.
+def _pick_one_kingdom_event(state: GameState) -> EventDefinition | None:
+    """Pick one weighted random event from currently eligible definitions. Eligibility is evaluated now."""
+    eligible = eligible_definitions(state, KINGDOM_EVENT_DEFINITIONS, "kingdom")
+    if not eligible:
+        return None
+    weights = [d.weight for d in eligible]
+    return random.choices(eligible, weights=weights, k=1)[0]
 
-    Eligibility: an event is included only if
-    - its event_id is not in occurred_kingdom_event_ids (for non-repeatable events),
-    - retire_if is None or returns False,
-    - available_if is None or returns True.
-    """
+
+def show_current_kingdom_event(state: GameState) -> None:
     if state.events_remaining_this_month <= 0:
+        enter_kingdom(state)
+        return
+
+    defn = _pick_one_kingdom_event(state)
+    if defn is None:
         set_kingdom_encounter(
             state,
-            title="No events remaining",
-            description=(
-                "You have no events remaining this month.\n\n"
-                "Choose 'Advance month' from the kingdom to start a new month and receive new events."
-            ),
-            choices=[
-                Choice("1", "Back", lambda: enter_kingdom(state)),
-            ],
+            "No events available",
+            "No kingdom events are available this month.",
+            [Choice("", "Back", lambda: enter_kingdom(state))],
         )
         return
 
-    queue = getattr(state, "kingdom_event_queue", []) or []
-    index = getattr(state, "current_kingdom_event_index", 0)
+    def on_finish(s: GameState) -> None:
+        mark_occurred_if_needed(s, defn)
+        s.events_remaining_this_month -= 1
+        enter_kingdom(s)
 
-    # Build a fresh queue only when we have none or we've exhausted it this month
-    if not queue or index >= len(queue):
-        # Every builder returns a KingdomEvent; we then filter by eligibility
-        built = [builder(state, advance_kingdom_event) for builder in KINGDOM_EVENT_BUILDERS]
-        occurred = getattr(state, "occurred_kingdom_event_ids", set()) or set()
-        eligible = [
-            e for e in built
-            if e.event_id not in occurred
-            and (e.retire_if is None or not e.retire_if(state))
-            and (e.available_if is None or e.available_if(state))
-        ]
-        if not eligible:
-            set_kingdom_encounter(
-                state,
-                title="No events available",
-                description="No kingdom events are available this month (all have already occurred or are retired).",
-                choices=[Choice("1", "Back", lambda: enter_kingdom(state))],
-            )
-            return
-        # Sample up to 3 events for this month; player will see them one by one
-        state.kingdom_event_queue = random.sample(eligible, k=min(3, len(eligible)))
-        state.current_kingdom_event_index = 0
-
-    show_current_kingdom_event(state)
-
-def show_current_kingdom_event(state: GameState) -> None:
-    """Display the next event in the queue, or finish the event flow if queue is exhausted."""
-    if state.current_kingdom_event_index >= len(state.kingdom_event_queue):
-        finish_kingdom_events(state)
-        return
-
-    event = state.kingdom_event_queue[state.current_kingdom_event_index]
-
-    # Build choices from event options; skip options whose condition(state) is False
-    choices = []
-    key_counter = 1
-    for option in event.options:
-        if option.condition is None or option.condition(state):
-            choices.append(Choice(str(key_counter), option.text, option.effect))
-            key_counter += 1
-
-    state.current_encounter = Encounter(
-        title=event.title,
-        description=event.description,
-        choices=choices,
+    ctx = EventContext(
+        state=state,
+        category="kingdom",
+        event_id=defn.event_id,
+        on_finish=on_finish,
     )
-
-def advance_kingdom_event(state: GameState) -> None:
-    """Called when the player picks an option on a kingdom event. Records completion and returns to hub."""
-    if state.current_kingdom_event_index < len(state.kingdom_event_queue):
-        event = state.kingdom_event_queue[state.current_kingdom_event_index]
-        if not event.repeatable:
-            if not hasattr(state, "occurred_kingdom_event_ids"):
-                state.occurred_kingdom_event_ids = set()
-            state.occurred_kingdom_event_ids.add(event.event_id)
-    state.current_kingdom_event_index += 1
-    state.events_remaining_this_month -= 1
-    enter_kingdom(state)
+    state.current_encounter = auto_number_choices(defn.builder(state, ctx))
 
 
-def finish_kingdom_events(state: GameState) -> None:
-    """No more events this month; clear queue and counters, return to hub."""
-    state.kingdom_event_queue = []
-    state.current_kingdom_event_index = 0
-    state.events_remaining_this_month = 0
-    enter_kingdom(state)
+def set_kingdom_encounter(
+    state: GameState,
+    title: str,
+    description: str,
+    choices: list[Choice],
+) -> None:
+    state.current_encounter = auto_number_choices(
+        Encounter(
+            title=title,
+            description=description,
+            choices=choices,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +151,6 @@ def show_monthly_summary(state: GameState) -> None:
     def continue_to_kingdom():
         state.events_remaining_this_month = 3
         state.encounters_remaining_this_month = 3
-        state.kingdom_event_queue = []
-        state.current_kingdom_event_index = 0
         enter_kingdom(state)
 
     summary_text = "\n".join(state.last_month_summary) if state.last_month_summary else "Nothing to report."
@@ -193,7 +159,7 @@ def show_monthly_summary(state: GameState) -> None:
         title="Monthly report",
         description=summary_text,
         choices=[
-            Choice("1", "Continue", continue_to_kingdom),
+            Choice("", "Continue", continue_to_kingdom),
         ],
     )
 
@@ -202,24 +168,25 @@ def show_monthly_summary(state: GameState) -> None:
 # Kingdom menu screens (view army, crops, population, perks, advisor, talk to king)
 # ---------------------------------------------------------------------------
 
-def kingdom_talk_to_king(state: GameState) -> None:
+def kingdom_talk_to_advisor(state: GameState) -> None:
     advisor_text = (
-        state.kingdom.advisor.name if state.kingdom.advisor is not None else "No advisor appointed"
+        state.kingdom.advisor.name + "listens in silence." if state.kingdom.advisor is not None else "No advisor appointed"
     )
 
     set_kingdom_encounter(
         state,
-        title="Audience with the King",
+        title="Audience with your advisor",
         description=(
-            f'The king sits on the cedar throne and listens in silence.\n\n'
-            f'Advisor: {advisor_text}\n'
-            f'Happiness: {state.kingdom.happiness}\n'
-            f'Fear: {state.kingdom.fear}\n'
-            f'Total food: {state.kingdom.total_food}\n'
-            f'Population: {len(state.kingdom.population)}'
+            f"{advisor_text}\n\n"
+            f"Happiness: {state.kingdom.happiness}\n"
+            f"Loyalty: {state.kingdom.loyalty}\n"
+            f"Gold: {state.kingdom.gold}\n"
+            f"Fear: {state.kingdom.fear}\n"
+            f"Total food: {state.kingdom.total_food}\n"
+            f"Population: {len(state.kingdom.population)}"
         ),
         choices=[
-            Choice("1", "Back", lambda: enter_kingdom(state)),
+            Choice("", "Back", lambda: enter_kingdom(state)),
         ],
     )
 
@@ -238,7 +205,7 @@ def kingdom_view_army(state: GameState) -> None:
         title="The Army",
         description=army_text,
         choices=[
-            Choice("1", "Back", lambda: enter_kingdom(state)),
+            Choice("", "Back", lambda: enter_kingdom(state)),
         ],
     )
 
@@ -262,7 +229,7 @@ def kingdom_view_crops(state: GameState) -> None:
             f"Stored food: {state.kingdom.total_food}\n"
         ),
         choices=[
-            Choice("1", "Back", lambda: enter_kingdom(state)),
+            Choice("", "Back", lambda: enter_kingdom(state)),
         ],
     )
 
@@ -272,7 +239,7 @@ def kingdom_view_crops(state: GameState) -> None:
 # ---------------------------------------------------------------------------
 
 def _format_villager_status(s) -> str:
-    """Turn a VillagerStatus into a display string (e.g. 'Addicted to Gloom Corn' or plain kind)."""
+    """Turn a VillagerStatus into a display string."""
     if s.kind == "addicted" and s.target and s.target in CROP_DB:
         return f"Addicted to {CROP_DB[s.target].name}"
     if s.kind == "addicted" and s.target:
@@ -280,7 +247,6 @@ def _format_villager_status(s) -> str:
     return s.kind
 
 
-# Trait thresholds for population summary: 9–10 = very high, 1–2 = very low
 TRAIT_NAMES = ["willpower", "extraversion", "luck", "conscientiousness"]
 
 
@@ -289,7 +255,6 @@ def _population_summary_text(pop: list) -> str:
     if not pop:
         return "You have no villagers."
 
-    # Race counts
     race_counts: dict[str, int] = {}
     for v in pop:
         race = v.race.strip() or "unknown"
@@ -297,7 +262,6 @@ def _population_summary_text(pop: list) -> str:
     race_parts = [f"{race}s: {count}" for race, count in sorted(race_counts.items())]
     race_line = "Races: " + ", ".join(race_parts)
 
-    # Trait counts: very high = 9-10, very low = 1-2
     trait_lines = []
     for attr in TRAIT_NAMES:
         high = sum(1 for v in pop if getattr(v, attr) >= 9)
@@ -310,7 +274,6 @@ def _population_summary_text(pop: list) -> str:
         if parts:
             trait_lines.append(", ".join(parts))
 
-    # Status effect counts (e.g. "3 addicted to Gloom Corn, 2 sick")
     status_counts: dict[str, int] = {}
     for v in pop:
         for s in v.status:
@@ -333,6 +296,7 @@ def _population_full_list_text(pop: list) -> str:
     """Full per-villager list for the 'view full list' screen."""
     if not pop:
         return "You have no villagers."
+
     lines = []
     for i, v in enumerate(pop, start=1):
         status_text = ", ".join(_format_villager_status(s) for s in v.status) if v.status else "None"
@@ -341,7 +305,7 @@ def _population_full_list_text(pop: list) -> str:
 
 
 def kingdom_view_population(state: GameState) -> None:
-    """Show population summary (races, traits, status counts) with option to view full per-villager list."""
+    """Show population summary with option to view full per-villager list."""
     pop = state.kingdom.population
     summary_text = _population_summary_text(pop)
 
@@ -352,7 +316,7 @@ def kingdom_view_population(state: GameState) -> None:
             title="Villagers — Full list",
             description=full_text,
             choices=[
-                Choice("1", "Back", lambda: kingdom_view_population(state)),
+                Choice("", "Back", lambda: kingdom_view_population(state)),
             ],
         )
 
@@ -361,25 +325,123 @@ def kingdom_view_population(state: GameState) -> None:
         title="Villagers",
         description=summary_text,
         choices=[
-            Choice("1", "View full list of villagers", view_full_list),
-            Choice("2", "Back", lambda: enter_kingdom(state)),
+            Choice("", "View full list of villagers", view_full_list),
+            Choice("", "Back", lambda: enter_kingdom(state)),
         ],
     )
+####PERKS####
 
+def purchase_perk(state: GameState, perk) -> None:
+    if perk.perk_id in state.kingdom.perks:
+        kingdom_view_perk_detail(state, perk)
+        return
 
-def kingdom_view_perks(state: GameState) -> None:
-    """Show list of acquired perks; Back returns to hub."""
-    if state.kingdom.perks:
-        perk_text = "\n".join(state.kingdom.perks)
-    else:
-        perk_text = "No perks acquired."
+    if state.kingdom.gold < perk.cost_gold:
+        kingdom_view_perk_detail(state, perk)
+        return
+
+    if perk.purchase_if is not None and not perk.purchase_if(state):
+        kingdom_view_perk_detail(state, perk)
+        return
+
+    state.kingdom.gold -= perk.cost_gold
+    state.kingdom.perks.append(perk.perk_id)
+
+    if perk.on_purchase is not None:
+        perk.on_purchase(state)
 
     set_kingdom_encounter(
         state,
-        title="Perks",
-        description=f"{perk_text}\n",
+        title="Perk Purchased",
+        description=f"You purchase {perk.name}.",
         choices=[
-            Choice("1", "Back", lambda: enter_kingdom(state)),
+            Choice("", "Back to category", lambda: kingdom_view_perk_category(state, perk.category)),
+            Choice("", "Back to perks", lambda: kingdom_view_perks(state)),
+        ],
+    )
+
+def kingdom_view_perk_detail(state: GameState, perk) -> None:
+    owned = perk.perk_id in state.kingdom.perks
+    can_afford = state.kingdom.gold >= perk.cost_gold
+    passes_req = perk.purchase_if(state) if perk.purchase_if is not None else True
+
+    description = (
+        f"{perk.description}\n\n"
+        f"Cost: {perk.cost_gold} gold"
+    )
+
+    if owned:
+        description += "\n\nYou already own this perk."
+    elif not can_afford:
+        description += "\n\nYou cannot afford this."
+    elif not passes_req:
+        description += "\n\nRequirements are not met."
+
+    choices = []
+
+    if not owned and can_afford and passes_req:
+        choices.append(Choice("", f"Buy {perk.name}", lambda: purchase_perk(state, perk)))
+
+    choices.append(Choice("", "Back", lambda: kingdom_view_perk_category(state, perk.category)))
+
+    set_kingdom_encounter(
+        state,
+        title=perk.name,
+        description=description,
+        choices=choices,
+    )
+def kingdom_view_perk_category(state: GameState, category: str) -> None:
+    perks = [p for p in PERK_DEFINITIONS if p.category == category]
+
+    visible = []
+    for p in perks:
+        if p.available_if is None or p.available_if(state):
+            visible.append(p)
+
+    if not visible:
+        set_kingdom_encounter(
+            state,
+            title=category.title(),
+            description="No perks are currently available in this category.",
+            choices=[Choice("", "Back", lambda: kingdom_view_perks(state))],
+        )
+        return
+
+    desc_lines = []
+    choices = []
+
+    for perk in visible:
+        owned = perk.perk_id in state.kingdom.perks
+        status = "OWNED" if owned else f"{perk.cost_gold} gold"
+        desc_lines.append(f"{perk.name} — {status}\n{perk.description}")
+
+        choices.append(
+            Choice("", f"View {perk.name}", lambda p=perk: kingdom_view_perk_detail(state, p))
+        )
+
+    choices.append(Choice("", "Back", lambda: kingdom_view_perks(state)))
+
+    set_kingdom_encounter(
+        state,
+        title=category.title(),
+        description="\n\n".join(desc_lines),
+        choices=choices,)
+
+def kingdom_view_perks(state: GameState) -> None:
+    set_kingdom_encounter(
+        state,
+        title="Perks",
+        description=(
+            "Choose a category.\n\n"
+            f"Gold: {state.kingdom.gold}\n"
+            f"Owned perks: {', '.join(_perk_id_to_display_name(pid) for pid in state.kingdom.perks) if state.kingdom.perks else 'None'}"
+        ),
+        choices=[
+            Choice("", "Farming perks", lambda: kingdom_view_perk_category(state, "farming")),
+            Choice("", "Army perks", lambda: kingdom_view_perk_category(state, "army")),
+            Choice("", "Expert perks", lambda: kingdom_view_perk_category(state, "experts")),
+            Choice("", "Laws", lambda: kingdom_view_perk_category(state, "laws")),
+            Choice("", "Back", lambda: enter_kingdom(state)),
         ],
     )
 
@@ -404,7 +466,7 @@ def kingdom_appoint_advisor(state: GameState) -> None:
             title="Advisor Appointed",
             description=f"You appoint {candidate.name} as your advisor.",
             choices=[
-                Choice("1", "Back", lambda: enter_kingdom(state)),
+                Choice("", "Back", lambda: enter_kingdom(state)),
             ],
         )
 
@@ -420,35 +482,21 @@ def kingdom_appoint_advisor(state: GameState) -> None:
         title="Choose an Advisor",
         description="\n\n".join(desc_lines),
         choices=[
-            Choice("1", f"Appoint {cands[0].name}", lambda: choose_candidate(0)),
-            Choice("2", f"Appoint {cands[1].name}", lambda: choose_candidate(1)),
-            Choice("3", f"Appoint {cands[2].name}", lambda: choose_candidate(2)),
-            Choice("4", "Back", lambda: enter_kingdom(state)),
+            Choice("", f"Appoint {cands[0].name}", lambda: choose_candidate(0)),
+            Choice("", f"Appoint {cands[1].name}", lambda: choose_candidate(1)),
+            Choice("", f"Appoint {cands[2].name}", lambda: choose_candidate(2)),
+            Choice("", "Back", lambda: enter_kingdom(state)),
         ],
     )
 
 
 # ---------------------------------------------------------------------------
-# Leaving kingdom & shared encounter setter
+# Leaving kingdom
 # ---------------------------------------------------------------------------
 
+from generators_encounters import get_next_world_event
+
+
 def leave_kingdom(state: GameState) -> None:
-    """Leave the kingdom and re-enter encounter mode. Uses 3 encounters per month; if none left, show return-to-kingdom screen."""
     state.add_log(f"You leave {state.kingdom.name} and head back into the wilds.")
-
-    from generators_encounters import get_next_encounter, _no_encounters_encounter
-
-    encounter = get_next_encounter(state)
-    if encounter is None:
-        state.current_encounter = _no_encounters_encounter(state)
-    else:
-        state.current_encounter = encounter
-
-
-def set_kingdom_encounter(state: GameState, title: str, description: str, choices: list[Choice]) -> None:
-    """Set state.current_encounter to a kingdom menu or event screen (title, description, choices)."""
-    state.current_encounter = Encounter(
-        title=title,
-        description=description,
-        choices=choices,
-    )
+    state.current_encounter = get_next_world_event(state)

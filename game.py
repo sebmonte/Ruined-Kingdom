@@ -13,8 +13,9 @@ class GameUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Procedural Text Adventure")
-        self.root.geometry("1200x800")
-        self.root.minsize(700, 450)
+        self.root.geometry("1400x900")
+        self.root.minsize(900, 600)
+
 
         self.state = GameState()
 
@@ -41,22 +42,17 @@ class GameUI:
         self.top_frame.grid(row=0, column=0, sticky="ew")
         self.top_frame.columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
 
-        self.kingdom_var = tk.StringVar()
         self.food_var = tk.StringVar()
         self.army_var = tk.StringVar()
-        self.happiness_var = tk.StringVar()
-        self.fear_var = tk.StringVar()
+        self.loyalty_var = tk.StringVar()
         self.population_var = tk.StringVar()
-        self.area_var = tk.StringVar()
+        self.gold_var = tk.StringVar()
 
-        ttk.Label(self.top_frame, textvariable=self.kingdom_var).grid(row=0, column=0, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.food_var).grid(row=0, column=1, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.army_var).grid(row=0, column=2, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.happiness_var).grid(row=0, column=3, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.fear_var).grid(row=0, column=4, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.population_var).grid(row=0, column=5, sticky="w")
-        ttk.Label(self.top_frame, textvariable=self.area_var).grid(row=0, column=6, sticky="w")
-
+        ttk.Label(self.top_frame, textvariable=self.food_var).grid(row=0, column=2, sticky="w")
+        ttk.Label(self.top_frame, textvariable=self.army_var).grid(row=0, column=4, sticky="w")
+        ttk.Label(self.top_frame, textvariable=self.loyalty_var).grid(row=0, column=3, sticky="w")
+        ttk.Label(self.top_frame, textvariable=self.population_var).grid(row=0, column=1, sticky="w")
+        ttk.Label(self.top_frame, textvariable=self.gold_var).grid(row=0, column=0, sticky="w")
         # ----------------------------
         # Notebook with tabs
         # ----------------------------
@@ -204,14 +200,11 @@ class GameUI:
         k = self.state.kingdom
         #advisor_name = k.advisor.name if k.advisor else "None"
         army_total = sum(k.army_units.values())
-        self.kingdom_var.set(f"Kingdom: {k.name}")
         self.food_var.set(f"Food: {k.total_food}")
         self.army_var.set(f"Army: {army_total}")
-        self.happiness_var.set(f"Happiness: {k.happiness}")
-        self.fear_var.set(f"Fear: {k.fear}")
-        self.population_var.set(f"Pop: {len(k.population)}")
-        self.area_var.set(f"Area: {self.state.area_index}")
-
+        self.loyalty_var.set(f"Loyalty: {k.loyalty}")
+        self.population_var.set(f"Population: {len(k.population)}")
+        self.gold_var.set(f"Gold: {k.gold}")
         self.text_box.config(state="normal")
         self.text_box.delete("1.0", tk.END)
 

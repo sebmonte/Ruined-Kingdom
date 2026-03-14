@@ -1,5 +1,3 @@
-import tkinter as tk
-from tkinter import ttk
 from dataclasses import dataclass, field
 import random
 from models import NPC
