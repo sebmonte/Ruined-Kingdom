@@ -23,7 +23,7 @@ class GameUI:
         if not self.state.kingdom.population:
             self.state.kingdom.population = [generate_villager("human") for _ in range(10)]
 
-        # Temporary example inventory if your GameState does not have one yet
+        # Temporary example inventory if GameState does not have one yet
         if not hasattr(self.state, "inventory"):
             self.state.inventory = ["Torch", "Old Key", "Health Potion"]
 

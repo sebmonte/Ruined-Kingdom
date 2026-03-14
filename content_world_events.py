@@ -1,3 +1,8 @@
+"""
+File for world encounters (3 per month)
+"""
+
+
 from models import GameState, Encounter, Choice, EventDefinition
 from generators_npc import generate_npc
 from event_runtime import EventContext

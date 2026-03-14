@@ -1,3 +1,11 @@
+"""
+File for world encounters (3 per month)
+
+- no_encounters_screen: screen shown when no encounters are remaining.
+- get_next_world_event: pick one event at a time from current eligible (available_if evaluated each time).
+- on_finish: callback for when an encounter is finished.
+"""
+
 import random
 
 from models import GameState, Encounter, Choice, EventDefinition

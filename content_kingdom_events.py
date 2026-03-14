@@ -1,5 +1,5 @@
 """
-Kingdom event builders.
+File for kingdom events (3 per month)
 
 Each kingdom event is an EventDefinition whose builder returns an Encounter.
 Choices can either:
