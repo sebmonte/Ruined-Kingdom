@@ -7,6 +7,7 @@ from models import GameState, Encounter, Choice, Kingdom
 from generators_kingdom import enter_kingdom
 from generators_villagers import generate_villager
 import re
+from generators_world import initialize_new_game
 
 
 class GameUI:
@@ -16,12 +17,8 @@ class GameUI:
         self.root.geometry("1400x900")
         self.root.minsize(900, 600)
 
-
         self.state = GameState()
-
-        # Initialize kingdom with 10 villagers at game start if population is empty
-        if not self.state.kingdom.population:
-            self.state.kingdom.population = [generate_villager("human") for _ in range(10)]
+        initialize_new_game(self.state)
 
         # Temporary example inventory if GameState does not have one yet
         if not hasattr(self.state, "inventory"):

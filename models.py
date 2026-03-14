@@ -89,6 +89,30 @@ class Crop:
     on_stock_change: Callable | None = None
     tags: list[str] = field(default_factory=list)
 
+@dataclass
+class RelationshipModifier:
+    source: str          # "policy", "event", "history", etc.
+    description: str
+    amount: int
+
+
+@dataclass
+class RaceRelationship:
+    race_a: str
+    race_b: str
+    base_reputation: int
+    modifiers: list[RelationshipModifier] = field(default_factory=list)
+
+    @property
+    def reputation(self) -> int:
+        total = self.base_reputation + sum(m.amount for m in self.modifiers)
+        return max(-500, min(500, total))
+
+@dataclass
+class WorldHistory:
+    race_relationships: dict[tuple[str, str], RaceRelationship] = field(default_factory=dict)
+    history_log: list[str] = field(default_factory=list)
+
 
 @dataclass
 class Kingdom:
@@ -114,6 +138,8 @@ class GameState:
     flags: dict = field(default_factory=dict)
     current_npc: NPC | None = None
     kingdom: Kingdom = field(default_factory=Kingdom)
+    world_history: WorldHistory = field(default_factory=WorldHistory)
+    
 
     # kingdom monthly event system
     events_remaining_this_month: int = 3

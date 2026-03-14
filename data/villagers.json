@@ -1,8 +1,13 @@
 {
   "first_names": {
     "human": ["Alric", "Bren", "Corin", "Darin", "Elric", "Jonan"],
-    "elf": ["Aelion", "Sylra", "Thalor", "Ilyra", "Vaelin"],
     "dwarf": ["Brom", "Kazgar", "Thorin", "Durak", "Morin"],
+    "gnome": ["Gimble", "Tilly", "Gus", "Nimble", "Pip", "Twig", "Bubbles", "Squeak", "Whiskers", "Fluff", "Mittens"],
+    "goblin": ["Goldtooth", "Silverfang", "Ironclaw", "Shadowstalker", "Direwolf", "Goblin King", "Goblin Queen", "Goblin Lord", "Goblin Warlord", "Goblin Chieftain"],
+    "troll": ["Ragnaros", "Sylvanas", "Thrall", "Vol'jin", "Durotan", "Mograine", "Vol'jin", "Garrosh", "Thrall", "Durotan"],
+    "mirekin": ["Bogfoot", "Mudclaw", "Sludgepaw", "Mudkip", "Mudskipper"],
+    "titan": ["Humangoid", "Jawbreaker", "Big Red", "Mega", "Gigantic", "Colossal"],
+    "umbralite": ["Shadow", "Darkness", "Evil", "Sin", "Corruption", "Decay", "Corruption", "Decay", "Corruption", "Decay"],
     "dog": ["Woofsley", "Sir Barkington", "Miss Fluffington", "Buddy", "Max", "Fido", "Bella", "Lucky", "Shadow", "Spike", "Miss Stinky The Third"],
     "ape": ["Ooh Aah", "Curious George", "Bongo", "Apey", "Banana Brain", "King Kong", "Jane", "Bubbles", "Chimpy", "Chimpy McChimpson"]
   },
@@ -11,8 +16,14 @@
     "human": ["Ashford", "Blackwell", "Dunmar", "Ironwood"],
     "elf": ["Moonwhisper", "Silverleaf", "Starbloom"],
     "dwarf": ["Ironfist", "Stonebeard", "Deepforge"],
+    "gnome": ["Gnome", "Gnome", "Gnome", "Gnome", "Gnome", "Gnome", "Gnome", "Gnome", "Gnome", "Gnome"],
     "dog": ["", ""],
-    "ape": ["", ""]
+    "ape": ["", ""],
+    "goblin": ["", ""],
+    "troll": ["", ""],
+    "mirekin": ["", ""],
+    "titan": ["", ""],
+    "umbralite": ["", ""]
   },
 
 "personalities": {

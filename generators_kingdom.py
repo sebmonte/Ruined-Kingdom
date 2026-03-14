@@ -259,7 +259,8 @@ def _population_summary_text(pop: list) -> str:
     for v in pop:
         race = v.race.strip() or "unknown"
         race_counts[race] = race_counts.get(race, 0) + 1
-    race_parts = [f"{race}s: {count}" for race, count in sorted(race_counts.items())]
+    # Most common race first
+    race_parts = [f"{race}s: {count}" for race, count in sorted(race_counts.items(), key=lambda x: -x[1])]
     race_line = "Races: " + ", ".join(race_parts)
 
     trait_lines = []
@@ -293,12 +294,25 @@ def _population_summary_text(pop: list) -> str:
 
 
 def _population_full_list_text(pop: list) -> str:
-    """Full per-villager list for the 'view full list' screen."""
+    """Full per-villager list for the 'view full list' screen. Villagers ordered by race (most common first)."""
     if not pop:
         return "You have no villagers."
 
+    race_counts: dict[str, int] = {}
+    for v in pop:
+        r = v.race.strip() or "unknown"
+        race_counts[r] = race_counts.get(r, 0) + 1
+    # Sort races by count descending; then order villagers by that race order
+    race_order = [race for race, _ in sorted(race_counts.items(), key=lambda x: -x[1])]
+    race_rank = {r: i for i, r in enumerate(race_order)}
+
+    def sort_key(v):
+        r = v.race.strip() or "unknown"
+        return (race_rank.get(r, 999), v.name)
+
+    ordered = sorted(pop, key=sort_key)
     lines = []
-    for i, v in enumerate(pop, start=1):
+    for i, v in enumerate(ordered, start=1):
         status_text = ", ".join(_format_villager_status(s) for s in v.status) if v.status else "None"
         lines.append(f"{i}. {v.name} ({v.race}) | Status: {status_text}")
     return "\n".join(lines)
